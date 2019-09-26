@@ -15,7 +15,7 @@
 //+-----------------------------------------------------------------------+
 #property copyright "Mataf.net"
 #property link      "https://www.mataf.net"
-#property version   "1.00"
+#property version   "1.01"
 #include "JAson.mqh"
 
 //--- input parameters
@@ -144,7 +144,7 @@ void OnTickSimulated()
 //+------------------------------------------------------------------+
 void LoadSettings()
   {
-   if(FileIsExist(token_file_name))
+   if(1==0 && FileIsExist(token_file_name))
      {
       int handle=FileOpen(token_file_name,FILE_READ|FILE_TXT);
       settings_file=FileReadString(handle);
@@ -649,7 +649,6 @@ string CreateTradesListJson(const bool firstRun)
                +GetLine("delete_data_not_in_list",firstRun)
                +"\"data\":[";
 
-   datetime today=StringToTime(TimeToString(TimeCurrent(),TIME_DATE|TIME_DATE));
 
 // Opened positions
    int x=0;
@@ -718,48 +717,47 @@ string CreateTradesListJson(const bool firstRun)
 
       open_time=(datetime)HistoryOrderGetInteger(ticket,ORDER_TIME_SETUP);
       close_time=(datetime)HistoryOrderGetInteger(ticket,ORDER_TIME_DONE);
-      if(!firstRun)
-        {
-         if(close_time<today)
-            break;
-        }
+      datetime today=StringToTime(TimeToString(TimeCurrent(),TIME_DATE|TIME_DATE));
 
-      swap=0;
-      commision=0;
-      if(HistorySelectByPosition(positionID))
+      if(firstRun || close_time<today)
         {
-         for(int j=0; j<HistoryDealsTotal(); j++)
+         swap=0;
+         commision=0;
+         if(HistorySelectByPosition(positionID))
            {
-            ulong dealTicket=HistoryDealGetTicket(j);
-
-            swap+=HistoryDealGetDouble(dealTicket,DEAL_SWAP);
-            commision+=HistoryDealGetDouble(dealTicket,DEAL_COMMISSION);
-
-            if(HistoryDealGetInteger(dealTicket,DEAL_ENTRY)==DEAL_ENTRY_IN)
+            for(int j=0; j<HistoryDealsTotal(); j++)
               {
-               type=(ENUM_ORDER_TYPE)HistoryDealGetInteger(dealTicket,DEAL_TYPE);
-               order_open_price=HistoryDealGetDouble(dealTicket,DEAL_PRICE);
-              }
-            else
-               if(HistoryDealGetInteger(dealTicket,DEAL_ENTRY)==DEAL_ENTRY_OUT)
+               ulong dealTicket=HistoryDealGetTicket(j);
+
+               swap+=HistoryDealGetDouble(dealTicket,DEAL_SWAP);
+               commision+=HistoryDealGetDouble(dealTicket,DEAL_COMMISSION);
+
+               if(HistoryDealGetInteger(dealTicket,DEAL_ENTRY)==DEAL_ENTRY_IN)
                  {
-                  profit+=HistoryDealGetDouble(dealTicket,DEAL_PROFIT);
-                  order_close_price=HistoryDealGetDouble(dealTicket,DEAL_PRICE);
+                  type=(ENUM_ORDER_TYPE)HistoryDealGetInteger(dealTicket,DEAL_TYPE);
+                  order_open_price=HistoryDealGetDouble(dealTicket,DEAL_PRICE);
                  }
+               else
+                  if(HistoryDealGetInteger(dealTicket,DEAL_ENTRY)==DEAL_ENTRY_OUT)
+                    {
+                     profit+=HistoryDealGetDouble(dealTicket,DEAL_PROFIT);
+                     order_close_price=HistoryDealGetDouble(dealTicket,DEAL_PRICE);
+                    }
+              }
            }
+
+         if(x++>0)
+            json+=",";
+
+         json+=CreateTradeObjectJson((string)positionID,symbol,order_units,order_open_price,order_close_price,profit,type,order_sl,order_tp,
+                                     open_time,close_time,commision,swap,0);
         }
-
-      if(x++>0)
-         json+=",";
-
-      json+=CreateTradeObjectJson((string)positionID,symbol,order_units,order_open_price,order_close_price,profit,type,order_sl,order_tp,
-                                  open_time,close_time,commision,swap,0);
      }
 
    json+="] }";
 
    if(firstRun)
-      Print("Send the full history ("+x+" trades) to the database");
+      Print("Send the full history ("+(string)x+" trades) to the database");
 
    if(x==0)
       return("");
